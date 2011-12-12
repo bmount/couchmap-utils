@@ -14,6 +14,8 @@ First link is [Nathaniel Kelso's](http://www.naturalearthdata.com/) [110m Resolu
 
 If you wanted the above example on your laptop, you could download CouchDB [from here](http://www.couchbase.com/downloads/couchbase-single-server/community), then open your browser to `localhost:5984/_utils`, click 'Create Database', name it 'easy', click 'replicator', choose "from remote" -> `http://bv.iriscouch.com/natural110m` "to local" -> `easy`, then open your browser to `localhost:5984/easy/_design/tgs/index.html`.
 
+General context for this app is that it is inspired by, and copied from, Max Ogden, Volker Mische, and Benjamin Erb. Idea is to be between vxm/geocouch-utils and maxogden/geocouch-utils, see those repos for really crack js in barer and more end-user-ready form, respectively.
+
 # Background on couchapps, CouchDB:
 
 This is a [CouchApp](http://couchapp.org/page/index) providing spatial functions and a set of helper scripts for [GeoCouch](https://github.com/vmx/couchdb).
