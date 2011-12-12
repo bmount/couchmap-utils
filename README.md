@@ -1,6 +1,6 @@
 # A really simple way to make SVG maps
 
-TLDR -> [Kelsovian planet earth svg map](http://bv.iriscouch.com/natural110m/_design/tgs/index.html)
+Example: [Kelsovian planet earth svg map](http://bv.iriscouch.com/natural110m/_design/tgs/index.html)
 
 This is a little toolkit for maximal relaxation in the production of svg maps, using CouchDB and Polymaps. Basic idea is to get Polymaps' incremental loading and panning together with GeoCouch's incremental indexer and bounding box implemenation.
 
