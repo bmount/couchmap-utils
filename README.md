@@ -1,4 +1,20 @@
-# Helper Functions for GeoCouch
+# A really simple way to make SVG maps
+
+TLDR -> [Kelsovian planet earth svg map](http://bv.iriscouch.com/natural110m/_design/tgs/index.html)
+
+This is a little toolkit for maximal relaxation in the production of svg maps, using CouchDB and Polymaps. Basic idea is to get Polymaps' incremental loading and panning together with GeoCouch's incremental indexer and bounding box implemenation.
+
+The only potentially non-obvious thing in here is the addition of a Polymaps/ModestMaps substitution variable compatible with GeoCouch's `bbox` parameter. This means Polymaps will treat your couch very much like a tile map service, and will load the right things at the right time in a smooth way. 
+
+A goal will be to write or generate a number of list functions with names like `level_1` and `level_2`, taking into acount whatever is important about the geography of interest, and then using zoom levels and the `{Z}` substitution variable for a real tile-map like experience. Also might enable some stuff that is often tricky: like a choropleth or isarithm at lower zoom levels that pans down to per-geometry details at higher ones.
+
+# Non-gory details
+
+First link is [Nathaniel Kelso's](http://www.naturalearthdata.com/) [110m Resolution Natural Earth](http://bv.iriscouch.com/natural110m/_design/tgs/index.html) on a [free Couch](http://iriscouch.com).
+
+If you wanted the above example on your laptop, you could download CouchDB [from here](http://www.couchbase.com/downloads/couchbase-single-server/community), then open your browser to `localhost:5984/_utils`, click 'Create Database', name it 'easy', click 'replicator', choose "from remote" -> `http://bv.iriscouch.com/natural110m` "to local" -> `easy`, then open your browser to `localhost:5984/easy/_design/tgs/index.html`.
+
+# Gory (what passes for gory in 2011) details:
 
 This is a [CouchApp](http://couchapp.org/page/index) providing spatial functions and a set of helper scripts for [GeoCouch](https://github.com/vmx/couchdb).
 
