@@ -20,7 +20,7 @@
     "from": ""
   },
   {
-    "to": "/_spatiallist/geojson/full",
+    "to": "/_spatial/_list/geojson/full",
     "from": "/data"
   },
   {
@@ -36,14 +36,14 @@
     "from": "api/*"
   },
   {
-    "to": "/_spatiallist/geojson/full",
+    "to": "/_spatial/_list/geojson/full",
     "from": "/all",
     "query": {
       "bbox": "-180,-90,180,90"
     }
   },
   {
-    "to": "/_spatiallist/kml/full",
+    "to": "/_spatial/_list/kml/full",
     "from": "/kml",
     "query": {
       "bbox": "-180,-90,180,90"
