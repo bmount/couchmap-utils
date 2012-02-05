@@ -16,7 +16,7 @@
     "from": "images/*"
   },
   {
-    "to": "index.html",
+    "to": "GeoCouch.html",
     "from": ""
   },
   {
