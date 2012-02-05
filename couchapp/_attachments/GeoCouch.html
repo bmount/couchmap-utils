@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+	<title>GeoCouch</title>
+  <link href="http://data.ic.ht/dc8364385fc612b847d66ca7886519749c/_design/polymapper/style/reset.css" media="screen" rel="stylesheet" type="text/css" /> 
+  <link href="http://data.ic.ht/dc8364385fc612b847d66ca7886519749c/_design/polymapper/style/map.css" media="screen" rel="stylesheet" type="text/css" /> 
+  <script type="text/javascript" src="http://data.ic.ht/dc8364385fc612b847d66ca7886519749c/_design/polymapper/script/jquery-1.4.4.min.js"></script>
+  <script type="text/javascript" src="http://data.ic.ht/dc8364385fc612b847d66ca7886519749c/_design/polymapper/script/jquery.couch.js"></script>
+  <!-- <script type="text/javascript" src="script/polymaps.min.js"></script> -->
+  <!--<script type="text/javascript" src="http://data.ic.ht/dc8364385fc612b847d66ca7886519749c/_design/polymapper/script/jquery.selectbox.js"></script>
+  <script type="text/javascript" src="http://data.ic.ht/dc8364385fc612b847d66ca7886519749c/_design/polymapper/script/geojson-utils.js"></script>-->
+  <!--<script type="text/javascript" src="script/map.js"></script>
+  <script type="text/javascript" src="script/maptip.js"></script>-->
+
+		<link rel="stylesheet" href="http://mapmeld.appspot.com/leaflet.css" />
+		<!--[if lte IE 8]><link rel="stylesheet" href="http://mapmeld.appspot.com/leaflet.ie.css" /><![endif]-->
+		<script type="text/javascript" src="http://mapmeld.appspot.com/leaflet.js"></script>
+		<script type="text/javascript">
+var map, po, currentData, geoJson, db;
+
+// Should probably abstract out the couch url and the db prefix and the version and the starting map center.
+var config = {
+	dbPrefix: '',
+	mapCenterLat: 42.3584308,
+	mapCenterLon: -71.0597732,
+	mapStartZoom: 14,
+  db: "api", // relative vhost links defined in rewrites.json
+  design: "ddoc",
+  vhost: true,
+  couchUrl: "",
+  host: "http://" + "http://data.ic.ht/dc8364385fc612b847d66ca7886519749c/_design/polymapper/script/map.js".split( "/" )[ 2 ],  
+};
+
+// vhosts are when you mask couchapps behind a pretty URL
+function inVhost() {
+  var vhost = false;
+  if ( document.location.pathname.indexOf( "_design" ) === -1 ) {
+    vhost = true;
+  }
+  return vhost;
+}
+
+function showLoader() {
+  $('.map_header').first().addClass('loading');  
+}
+
+function hideLoader() {
+  $('.map_header').first().removeClass('loading');  
+}
+
+function gotFirstDoc(data) {
+  data = JSON.parse(data);
+  // find the first non design doc
+  var firstDoc = $(data.rows).map(function(i, r){
+    if (r.id.indexOf("_design/") == -1) return r;
+  })[0];
+  
+  var processData = function(moarData){
+    moarData = JSON.parse(moarData);
+    function getCoordinatesArray(obj){
+      for(var key in obj) {
+        if(key == "coordinates") {
+          return obj[key];
+        }
+        if(typeof(obj) === 'object') {
+          getCoordinatesArray(obj[key]);        
+        }
+      }
+      return false;
+    }
+    function flatten(array){
+      var flat = [];
+      for (var i = 0, l = array.length; i < l; i++){
+        var type = Object.prototype.toString.call(array[i]).split(' ').pop().split(']').shift().toLowerCase();
+        if (type) { 
+          flat = flat.concat(/^(array|collection|arguments|object)$/.test(type) ? flatten(array[i]) : array[i]); 
+        }
+      }
+      return flat;
+    }
+    function getCoordinates(coordinates) {
+      return flatten(coordinates);
+    }
+    var coordinates = getCoordinatesArray(moarData.geometry);
+    var center = getCoordinates(coordinates);
+    config.mapCenterLon = center[0];
+    config.mapCenterLat = center[1];
+    createMap(config);
+  };
+  
+  processData('{"_id":"013013bd7417fc4eb1d70053370d698d","_rev":"1-cc614ed8a795b24945508435763def31","geometry":{"type":"Point","coordinates":[-71.09611556,42.33877667]},"truck":"CheeseForceOne","moving":"OTHER","street":"230 FENWAY","cross_street":"","stopped_for":5350,"heading":382,"city":"BOSTON","gpsID":"10300B7B","time":"2011-10-21T22:56:32.000Z"}');
+  
+}
+
+function createMap(config) {
+  map = new L.Map('map_container', { center: new L.LatLng(1 * config.mapCenterLat, 1 * config.mapCenterLon), zoom: config.mapStartZoom * 1 } );  
+  geoJson = new L.GeoJSON();
+  map.addLayer(geoJson);
+  //geoJson.on('featureparse', function(e){
+    // e.layer and e.properties
+  //});
+  //geoJson.addGeoJSON(geojsonObj);
+  //map.addLayer(geoJson);
+  
+  var featuresCache = {};
+      //.add(po.interact())
+      //.add(po.hash());
+
+var cloudmadeUrl = 'http://tile.stamen.com/terrain/{z}/{x}/{y}.jpg';
+    cloudmadeAttribution = 'Map data &copy; 2011 OpenStreetMap contributors, Tiles courtesy Andy Allan',
+    cloudmade = new L.TileLayer(cloudmadeUrl, {maxZoom: 18, attribution: cloudmadeAttribution});
+	map.addLayer(cloudmade);
+	
+  //map.add(po.compass()
+      //.pan("none"));
+  
+  showDataset();
+}
+
+function randomColor(colors) {
+  var sick_neon_colors = ["#CB3301", "#FF0066", "#FF6666", "#FEFF99", "#FFFF67", "#CCFF66", "#99FE00", "#EC8EED", "#FF99CB", "#FE349A", "#CC99FE", "#6599FF", "#03CDFF"];
+  return sick_neon_colors[Math.floor(Math.random()*sick_neon_colors.length)];
+};
+
+function load(e){
+  var cssObj = randColor = randomColor();
+  for (var i = 0; i < e.features.length; i++) {
+    var feature = e.features[i];
+    if( feature.data.geometry.type == 'LineString' || feature.data.geometry.type == 'MultiLineString' ) {
+      cssObj = {
+        fill: 'none',
+        stroke: randColor,
+        strokeWidth:2,
+        opacity: .9 
+      }
+    } else {
+      cssObj = {
+        fill: randColor,
+        opacity: .9 
+      }
+    }
+    $( feature.element )
+      .css( cssObj )
+  }
+  
+  var counts = {};
+  $.each(e.features, function( i, feature) {
+    var type = this.data.geometry.type.toLowerCase(),
+        el = this.element,
+        $el   = $(el),
+        $cir  = $(el.firstChild),
+        text  = po.svg('text'),
+        props = this.data.properties,
+        check = $('span.check[data-code=' + props.code + ']'),
+        inact = check.hasClass('inactive');
+    if(!counts[props.code]) {
+      counts[props.code] = 0
+    } 
+    counts[props.code]++
+    $el.bind('click', {props: props, geo: this.data.geometry}, onPointClick)      
+    text.setAttribute("text-anchor", "middle")
+    text.setAttribute("dy", ".35em")
+    text.appendChild(document.createTextNode(props.code))
+    el.appendChild(text)
+  })
+}
+
+function fetchFeatures(bbox, callback) {
+  $.ajax({
+    url: config.couchUrl + "data",
+    data: {
+      "bbox": bbox
+    },
+    success: callback
+  });
+}
+
+var showDataset = function() {
+  var bbox = getBB();
+  showLoader();
+  //fetchFeatures( bbox, function( data ){
+  var readBB = function( data ){
+    data = JSON.parse(data);
+    map.removeLayer(geoJson);
+    geoJson = new L.GeoJSON()
+    geoJson.on('featureparse', function(e){
+    	// e.layer and e.properties
+
+    	map.addLayer(e.layer);
+    	e.layer.bindPopup( '<div class="maptip"><div class="maptip-cnt"><div class="nub"></div><h2>properties</h2><p><dl><dt>truck</dt><dd>' + e.properties.truck + '</dd><dt>moving</dt><dd>' + e.properties.moving + '</dd><dt>street</dt><dd>' + e.properties.street + '</dd><dt>cross_street</dt><dd>' + e.properties.cross_street + '</dd><dt>city</dt><dd>' + e.properties.city + '</dd><dt>gpsID</dt><dd>' + e.properties.gpsID + '</dd><dt>time</dt><dd>' + e.properties.time + '</dd></dl></p></div></div>' );
+    	//console.log(e.layer);
+    	console.log(e.properties);
+  	})
+    geoJson.addGeoJSON(data);
+    /* var feature = po.geoJson()
+          .features( data.features )
+          .on( "show", load );
+    map.add( feature ); */
+    
+    
+    
+    hideLoader();
+  };
+  
+  readBB(' {"type": "FeatureCollection", "features":[{"type": "Feature", "id": "3bcc0e57bed43c824616cceae5107bb8", "geometry": {"type":"Point","coordinates":[-71.09054667,42.35294972]}, "properties": {"_id":"3bcc0e57bed43c824616cceae5107bb8","_rev":"1-ce3df86622d1c63a836356cfa4b16886","truck":"KickassCupcakes","moving":"MOVING","street":"MASSACHUSETTS AVE","cross_street":"","stopped_for":20,"heading":159,"city":"BOSTON","gpsID":"103002A1","time":"2011-10-23T04:46:38.000Z"}},{"type": "Feature", "id": "3bcc0e57bed43c824616cceae5101442", "geometry": {"type":"Point","coordinates":[-71.09054667,42.35294972]}, "properties": {"_id":"3bcc0e57bed43c824616cceae5101442","_rev":"1-d46736587a1fc87dc4f67df8aa17a684","truck":"KickassCupcakes","moving":"STOP","street":"MASSACHUSETTS AVE","cross_street":"","stopped_for":0,"heading":382,"city":"BOSTON","gpsID":"103002A1","time":"2011-10-23T04:46:09.000Z"}},{"type": "Feature", "id": "3bcc0e57bed43c824616cceae510bf14", "geometry": {"type":"Point","coordinates":[-71.09042472,42.35270667]}, "properties": {"_id":"3bcc0e57bed43c824616cceae510bf14","_rev":"1-d19099b0397965ce550cf7acc769ff31","truck":"KickassCupcakes","moving":"MOVING CONFIRMATION","street":"MASSACHUSETTS AVE","cross_street":"","stopped_for":0,"heading":159,"city":"BOSTON","gpsID":"103002A1","time":"2011-10-23T04:46:39.000Z"}},{"type": "Feature", "id": "a2371029eac58dde81cfdf10be10a31d", "geometry": {"type":"Point","coordinates":[-71.09027139,42.35252833]}, "properties": {"_id":"a2371029eac58dde81cfdf10be10a31d","_rev":"1-0b9bf5f5a1e00a16caff4d27088e7074","truck":"BonMe","moving":"MOVING UPDATE","street":"MASSACHUSETTS AVE","cross_street":"STORROW DR","stopped_for":0,"heading":339,"city":"BOSTON","gpsID":"1030041A","time":"2011-10-21T07:23:52.000Z"}},{"type": "Feature", "id": "5c2567cb24c8f6ca0423dca815ca9cd6", "geometry": {"type":"Point","coordinates":[-71.08452806,42.35218944]}, "properties": {"_id":"5c2567cb24c8f6ca0423dca815ca9cd6","_rev":"1-b838f36870c54a56a2a00c9fea7a5415","truck":"Redbones","moving":"MOVING UPDATE","street":"BEACON ST","cross_street":"GLOUCESTER ST","stopped_for":0,"heading":250,"city":"BOSTON","gpsID":"10300D38","time":"2011-10-21T02:04:06.000Z"}},{"type": "Feature", "id": "18331928da4429e544bf064178a4c190", "geometry": {"type":"Point","coordinates":[-71.15292167,42.35720861]}, "properties": {"_id":"18331928da4429e544bf064178a4c190","_rev":"1-54a4ee6f258fe84a5700631dfafa8de7","truck":"SavoryFood","moving":"MOVING UPDATE","street":"N BEACON ST","cross_street":"VINELAND ST","stopped_for":0,"heading":108,"city":"BOSTON","gpsID":"10300AE6","time":"2011-10-21T21:07:57.000Z"}},{"type": "Feature", "id": "afb2ecf6f1ea32849406e1b5836dffd0", "geometry": {"type":"Point","coordinates":[-71.15184667,42.35782028]}, "properties": {"_id":"afb2ecf6f1ea32849406e1b5836dffd0","_rev":"1-e94f7f473781a8a9a489507197d96f8a","truck":"Froyo2","moving":"MOVING UPDATE","street":"I-90","cross_street":"","stopped_for":0,"heading":85,"city":"BOSTON","gpsID":"10300B70","time":"2011-10-22T20:48:22.000Z"}},{"type": "Feature", "id": "d7171c7c9f2e66da0ce67a50e2b2d2b9", "geometry": {"type":"Point","coordinates":[-71.14962417,42.35631333]}, "properties": {"_id":"d7171c7c9f2e66da0ce67a50e2b2d2b9","_rev":"1-f8a971a03bbd6d0c1fdd60c032d1ca07","truck":"SavoryFood","moving":"MOVING UPDATE","street":"N BEACON ST","cross_street":"MARKET ST","stopped_for":0,"heading":108,"city":"BOSTON","gpsID":"10300AE6","time":"2011-10-24T21:12:45.000Z"}},{"type": "Feature", "id": "18331928da4429e544bf0641784341c1", "geometry": {"type":"Point","coordinates":[-71.13954444,42.35790667]}, "properties": {"_id":"18331928da4429e544bf0641784341c1","_rev":"1-5001a763787719012a4536b894156c0b","truck":"Momogoose2","moving":"MOVING CONFIRMATION","street":"LINCOLN ST","cross_street":"","stopped_for":0,"heading":244,"city":"BOSTON","gpsID":"10300CC9","time":"2011-10-21T20:51:15.000Z"}},{"type": "Feature", "id": "e78acbc18d7a666128972151ba4f7051", "geometry": {"type":"Point","coordinates":[-71.13943639,42.35784583]}, "properties": {"_id":"e78acbc18d7a666128972151ba4f7051","_rev":"1-245b7f75b1577082acb1adffb61621f9","truck":"Momogoose","moving":"MOVING CONFIRMATION","street":"LINCOLN ST","cross_street":"","stopped_for":0,"heading":213,"city":"BOSTON","gpsID":"10300D25","time":"2012-01-11T19:53:44.000Z"}},{"type": "Feature", "id": "d7171c7c9f2e66da0ce67a50e2186625", "geometry": {"type":"Point","coordinates":[-71.13931056,42.35775083]}, "properties": {"_id":"d7171c7c9f2e66da0ce67a50e2186625","_rev":"1-eeabeab26a0e15da294a758d77c7a4c7","truck":"Momogoose","moving":"MOVING CONFIRMATION","street":"LINCOLN ST","cross_street":"","stopped_for":0,"heading":99,"city":"BOSTON","gpsID":"10300D25","time":"2011-10-24T20:48:54.000Z"}},{"type": "Feature", "id": "d7171c7c9f2e66da0ce67a50e21859a2", "geometry": {"type":"Point","coordinates":[-71.13931056,42.35775083]}, "properties": {"_id":"d7171c7c9f2e66da0ce67a50e21859a2","_rev":"1-7bd82c03ae436aaf941dab9276c1a5a0","truck":"Momogoose","moving":"MOVING","street":"LINCOLN ST","cross_street":"","stopped_for":240570,"heading":99,"city":"BOSTON","gpsID":"10300D25","time":"2011-10-24T20:48:53.000Z"}},{"type": "Feature", "id": "e78acbc18d7a666128972151ba552931", "geometry": {"type":"Point","coordinates":[-71.13925722,42.35775917]}, "properties": {"_id":"e78acbc18d7a666128972151ba552931","_rev":"1-a8fd0c42c0572727e79e01a32c7a03fd","truck":"Momogoose2","moving":"MOVING CONFIRMATION","street":"LINCOLN ST","cross_street":"","stopped_for":0,"heading":97,"city":"BOSTON","gpsID":"10300CC9","time":"2012-01-11T19:57:35.000Z"}},{"type": "Feature", "id": "57394fdc6b2d1229b0f2906bf61dfcb9", "geometry": {"type":"Point","coordinates":[-71.13824,42.35767444]}, "properties": {"_id":"57394fdc6b2d1229b0f2906bf61dfcb9","_rev":"1-6e95bab548ea026ff565dfdf6862fd0f","truck":"Momogoose2","moving":"MOVING UPDATE","street":"LINCOLN ST","cross_street":"EVERETT ST","stopped_for":0,"heading":280,"city":"BOSTON","gpsID":"10300CC9","time":"2011-10-29T01:39:09.000Z"}},{"type": "Feature", "id": "5c2567cb24c8f6ca0423dca815be46c9", "geometry": {"type":"Point","coordinates":[-71.1371275,42.35354667]}, "properties": {"_id":"5c2567cb24c8f6ca0423dca815be46c9","_rev":"1-a75cd4d9286026e12b82c42cffabfc12","truck":"SavoryFood","moving":"MOVING CONFIRMATION","street":"BRIGHTON AVE","cross_street":"CAMBRIDGE ST","stopped_for":0,"heading":276,"city":"BOSTON","gpsID":"10300AE6","time":"2011-10-21T01:52:04.000Z"}},{"type": "Feature", "id": "ac295283377c9d7188c8f13d3150cc45", "geometry": {"type":"Point","coordinates":[-71.13691583,42.35356944]}, "properties": {"_id":"ac295283377c9d7188c8f13d3150cc45","_rev":"1-ee76e98a04ab39cc99a735142a848507","truck":"SavoryFood","moving":"MOVING CONFIRMATION","street":"BRIGHTON AVE","cross_street":"ISLINGTON ST","stopped_for":0,"heading":279,"city":"BOSTON","gpsID":"10300AE6","time":"2011-10-22T01:57:36.000Z"}},{"type": "Feature", "id": "ac295283377c9d7188c8f13d3150b98d", "geometry": {"type":"Point","coordinates":[-71.13691583,42.35356944]}, "properties": {"_id":"ac295283377c9d7188c8f13d3150b98d","_rev":"1-0d37b60af1803eb6828dffd60e690265","truck":"SavoryFood","moving":"MOVING","street":"BRIGHTON AVE","cross_street":"ISLINGTON ST","stopped_for":210,"heading":279,"city":"BOSTON","gpsID":"10300AE6","time":"2011-10-22T01:57:35.000Z"}},{"type": "Feature", "id": "57394fdc6b2d1229b0f2906bf6337b08", "geometry": {"type":"Point","coordinates":[-71.13682778,42.35356083]}, "properties": {"_id":"57394fdc6b2d1229b0f2906bf6337b08","_rev":"1-a990b97e18da24cd03b734d5c73019f9","truck":"SavoryFood","moving":"MOVING CONFIRMATION","street":"BRIGHTON AVE","cross_street":"ISLINGTON ST","stopped_for":0,"heading":280,"city":"BOSTON","gpsID":"10300AE6","time":"2011-10-29T01:48:44.000Z"}},{"type": "Feature", "id": "5c2567cb24c8f6ca0423dca815bbe3e7", "geometry": {"type":"Point","coordinates":[-71.13622028,42.3535075]}, "properties": {"_id":"5c2567cb24c8f6ca0423dca815bbe3e7","_rev":"1-9ee015ff37a0a1a543cdf16b3767f130","truck":"SavoryFood","moving":"STOP","street":"BRIGHTON AVE","cross_street":"CRAFTSMAN ST","stopped_for":0,"heading":382,"city":"BOSTON","gpsID":"10300AE6","time":"2011-10-21T01:49:08.000Z"}},{"type": "Feature", "id": "5c2567cb24c8f6ca0423dca815be8dcc", "geometry": {"type":"Point","coordinates":[-71.13622,42.3535075]}, "properties": {"_id":"5c2567cb24c8f6ca0423dca815be8dcc","_rev":"1-a489b0c7a388f990bbd0e51feda70283","truck":"SavoryFood","moving":"MOVING","street":"BRIGHTON AVE","cross_street":"CRAFTSMAN ST","stopped_for":170,"heading":276,"city":"BOSTON","gpsID":"10300AE6","time":"2011-10-21T01:52:03.000Z"}},{"type": "Feature", "id": "57394fdc6b2d1229b0f2906bf62d9542", "geometry": {"type":"Point","coordinates":[-71.13589556,42.35353667]}, "properties": {"_id":"57394fdc6b2d1229b0f2906bf62d9542","_rev":"1-95ebf1b82ab73b2c54e566144a99e9a6","truck":"SavoryFood","moving":"STOP","street":"BRIGHTON AVE","cross_street":"CRAFTSMAN ST","stopped_for":0,"heading":382,"city":"BOSTON","gpsID":"10300AE6","time":"2011-10-29T01:46:29.000Z"}},{"type": "Feature", "id": "57394fdc6b2d1229b0f2906bf63363d2", "geometry": {"type":"Point","coordinates":[-71.13589528,42.35353667]}, "properties": {"_id":"57394fdc6b2d1229b0f2906bf63363d2","_rev":"1-acdc4c2204c0e49b4d4e8e4e393d1b5e","truck":"SavoryFood","moving":"MOVING","street":"BRIGHTON AVE","cross_street":"CRAFTSMAN ST","stopped_for":130,"heading":280,"city":"BOSTON","gpsID":"10300AE6","time":"2011-10-29T01:48:43.000Z"}},{"type": "Feature", "id": "ac295283377c9d7188c8f13d314665f0", "geometry": {"type":"Point","coordinates":[-71.13527778,42.35348972]}, "properties": {"_id":"ac295283377c9d7188c8f13d314665f0","_rev":"1-1c7e171d50caef4b2d2d2169cbf00584","truck":"SavoryFood","moving":"STOP","street":"BRIGHTON AVE","cross_street":"CRAFTSMAN ST","stopped_for":0,"heading":382,"city":"BOSTON","gpsID":"10300AE6","time":"2011-10-22T01:53:56.000Z"}},{"type": "Feature", "id": "ac295283377c9d7188c8f13d314f908d", "geometry": {"type":"Point","coordinates":[-71.13492972,42.35723944]}, "properties": {"_id":"ac295283377c9d7188c8f13d314f908d","_rev":"1-0d4de50b34fafc225f1499ea386c22dd","truck":"Momogoose","moving":"MOVING UPDATE","street":"LINCOLN ST","cross_street":"ERIC RD","stopped_for":0,"heading":277,"city":"BOSTON","gpsID":"10300D25","time":"2011-10-22T01:56:52.000Z"}},{"type": "Feature", "id": "e78acbc18d7a666128972151ba670465", "geometry": {"type":"Point","coordinates":[-71.13223028,42.35297028]}, "properties": {"_id":"e78acbc18d7a666128972151ba670465","_rev":"1-3453e267d8e16be98c31f0650fda07d0","truck":"SavoryFood","moving":"MOVING UPDATE","street":"BRIGHTON AVE","cross_street":"HARVARD AVE","stopped_for":0,"heading":97,"city":"BOSTON","gpsID":"10300AE6","time":"2012-01-11T20:04:31.000Z"}}]}' );
+  
+}
+
+var getBB = function(){
+  var extent = map.getBounds();
+  return extent.getSouthWest().lng + "," + extent.getSouthWest().lat + "," + extent.getNorthEast().lng + "," + extent.getNorthEast().lat;
+}
+
+var formatMetadata = function(data) {
+  out = '<dl>';
+  $.each(data, function(key, val) {
+    if (typeof(val) == 'string' && key[0] != '_') {
+      out = out + '<dt>' + key + '<dd>' + val;
+    } else if (typeof(val) == 'object' && key != "geometry" && val != null) {
+      if (key == 'properties') {
+        $.each(val, function(attr, value){
+          out = out + '<dt>' + attr + '<dd>' + value;
+        })
+      } else {
+        out = out + '<dt>' + key + '<dd>' + val.join(', ');
+      }
+    }
+  });
+  out = out + '</dl>';
+  return out;
+}
+
+var onPointClick = function( event ) {
+  var coor = event.data.geo.coordinates,
+    props = event.data.props;
+  if (event.data.geo.type === "Point") {
+    var centroid = event.data.geo;
+  } else {
+    var centroid = gju.centroid(event.data.geo);
+  }
+    
+  config.mapContainer
+    .maptip(this)
+    .map(map)
+    .data(props)
+    .location({lat: centroid.coordinates[1], lon: centroid.coordinates[0]})
+    .classNames(function(d) {
+      return d.code
+    })
+    .top(function(tip) {
+      var point = tip.props.map.locationPoint(this.props.location)
+      return parseFloat(point.y - 30)
+    })
+    .left(function(tip) {
+      var radius = tip.target.getAttribute('r'),
+          point = tip.props.map.locationPoint(this.props.location)
+      return parseFloat(point.x + (radius / 2.0) + 20)
+    })
+    .content(function(d) {
+      var self = this,
+        props = d,
+        cnt = $('<div/>'),
+        hdr = $('<h2/>'),
+        bdy = $('<p/>'),
+        check = $('#sbar span[data-code=' + props.code + ']'),
+        ctype = check.next().clone(),
+        otype = check.closest('li.group').attr('data-code'),
+        close = $('<span/>').addClass('close').text('x')
+
+      hdr.append($('<span/>').addClass('badge').text('E').attr('data-code', otype))
+        .append("properties")
+        .append(ctype)
+        .append(close)
+        .addClass(otype) 
+    
+      bdy.html(formatMetadata(props))
+      bdy.append($('<span />')
+        .addClass('date')
+        .text(props.properties))
+    
+      cnt.append($('<div/>').addClass('nub'))
+      cnt.append(hdr).append(bdy) 
+    
+      close.click(function() {
+        self.hide()
+      })   
+
+      return cnt
+    }).render()    
+};
+
+$(function(){  
+  if ( !inVhost() ) {
+    var cfg = config;
+    cfg.vhost = false
+    cfg.db = document.location.href.split( '/' )[ 3 ];
+    cfg.design = unescape( document.location.href ).split( '/' )[ 5 ];
+    cfg.couchUrl = "/" + cfg.db + "/_design/" + cfg.design + "/_rewrite/";
+  }
+
+  gotFirstDoc('{"total_rows":2432,"offset":0,"rows":[{"id":"013013bd7417fc4eb1d70053370d698d","key":"013013bd7417fc4eb1d70053370d698d","value":{"rev":"1-cc614ed8a795b24945508435763def31"}},{"id":"013013bd7417fc4eb1d70053370da624","key":"013013bd7417fc4eb1d70053370da624","value":{"rev":"1-303e3d47832991f13115f1f8fbf7aa30"}},{"id":"013013bd7417fc4eb1d700533725c9e7","key":"013013bd7417fc4eb1d700533725c9e7","value":{"rev":"1-aa06630c2060997cca42d5e5491cec00"}},{"id":"013013bd7417fc4eb1d70053372c06c4","key":"013013bd7417fc4eb1d70053372c06c4","value":{"rev":"1-e5f72c7a5a71e490319257e7bafffe3d"}},{"id":"013013bd7417fc4eb1d70053372c2274","key":"013013bd7417fc4eb1d70053372c2274","value":{"rev":"1-2680de3cb56db7a8a4a603b9e49a19c6"}},{"id":"013013bd7417fc4eb1d700533761e1a7","key":"013013bd7417fc4eb1d700533761e1a7","value":{"rev":"1-cef095aee70aad4819490934450c3328"}},{"id":"013013bd7417fc4eb1d700533762cf34","key":"013013bd7417fc4eb1d700533762cf34","value":{"rev":"1-c22129144816e3dcd1190f77bbc5fe31"}},{"id":"013013bd7417fc4eb1d700533762ed4e","key":"013013bd7417fc4eb1d700533762ed4e","value":{"rev":"1-4d5403a6228c84fed13ca94fb759eed1"}},{"id":"013013bd7417fc4eb1d7005337630613","key":"013013bd7417fc4eb1d7005337630613","value":{"rev":"1-94299d448735b989083f44cf34e98a3d"}},{"id":"013013bd7417fc4eb1d7005337631d4c","key":"013013bd7417fc4eb1d7005337631d4c","value":{"rev":"1-b8b6103d2be1fd64e38b1d6f5d0e76d2"}}]}' );
+
+});
+		</script>
+</head>
+<body>
+  <div id="map_container" class="map_container"></div>
+  <div class="map_header"> 
+  	<h2><a href="http://github.com/maxogden/geocouch-utils">GeoCouch</a></h2> 
+  </div>
+  <div class="date"></div>
+  <div id="dialog">
+    <ul></ul>
+  </div>
+</body>
+</html>

@@ -72,31 +72,41 @@ function gotFirstDoc(data) {
 }
 
 function createMap(config) {
-  po = org.polymaps;
-  geoJson = po.geoJson();
-  config.mapContainer = $('div.map_container');
+  var llcenter = new L.LatLng( 1 * config.mapCenterLat, 1 * config.mapCenterLon);
+  var startZoom = 1 * config.mapStartZoom;
+  map = new L.Map('map_container', { center: llcenter, zoom: startZoom } );  
+  geoJson = new L.GeoJSON();
+  map.addLayer(geoJson);
   
   var featuresCache = {};
-  map = po.map()
-      .container(config.mapContainer[0].appendChild(po.svg("svg")))
-      .zoom(config.mapStartZoom)
-      .center({lat: config.mapCenterLat, lon: config.mapCenterLon})
-      .add(po.interact())
-      .add(po.hash());
 
-  map.add(po.image()
-      .url(po.url("http://{S}tile.cloudmade.com"
-      + "/d3394c6c242a4f26bb7dd4f7e132e5ff" // http://cloudmade.com/register
-      + "/998/256/{Z}/{X}/{Y}.png")
-      .repeat(false)
-      .hosts(["a.", "b.", "c.", ""])));
+  var stamenUrl = 'http://tile.stamen.com/terrain/{z}/{x}/{y}.jpg';
+    stamenAttribution = 'Map data &copy; 2012 OpenStreetMap contributors, Tiles courtesy Andy Allan';
+    stamen = new L.TileLayer(stamenUrl, {maxZoom: 18, attribution: stamenAttribution});
+	map.addLayer(stamen);
 
-  map.add(po.geoJson()
-      .url(config.couchUrl + "data?bbox={G}")
-      .on("load", load));
+  /* var cloudmadeUrl = 'http://{s}.tile.cloudmade.com/d3394c6c242a4f26bb7dd4f7e132e5ff/998/256/{z}/{x}/{y}.png';
+    cloudmadeAttribution = 'Map data &copy; 2012 OpenStreetMap contributors, Tiles from Cloudmade';
+    cloudmade = new L.TileLayer(cloudmadeUrl, {maxZoom: 18, attribution: cloudmadeAttribution});
+    map.addLayer(cloudmade); */
 
-  map.add(po.compass()
-      .pan("none"));  
+  showDataset();
+}
+
+var showDataset = function() {
+  var bbox = getBB();
+  showLoader();
+  fetchFeatures( bbox, function( data ){
+    data = JSON.parse(data);
+    map.removeLayer(geoJson);
+    geoJson = new L.GeoJSON();
+    geoJson.on('featureparse', function(e){
+      map.addLayer(e.layer);
+      e.layer.bindPopup( '<div class="maptip"><div class="maptip-cnt"><div class="nub"></div><h2>properties</h2><p>' + formatMetadata(e.properties) + '</p></div></div>' );
+  	})
+    geoJson.addGeoJSON(data);
+    hideLoader();
+  })
 }
 
 function randomColor(colors) {
@@ -104,48 +114,19 @@ function randomColor(colors) {
   return sick_neon_colors[Math.floor(Math.random()*sick_neon_colors.length)];
 };
 
-function load(e){
-  var cssObj = randColor = randomColor();
-  for (var i = 0; i < e.features.length; i++) {
-    var feature = e.features[i];
-    if( feature.data.geometry.type == 'LineString' || feature.data.geometry.type == 'MultiLineString' ) {
-      cssObj = {
-        fill: 'none',
-        stroke: randColor,
-        strokeWidth: 2,
-        opacity: .9 
-      }
-    } else {
-      cssObj = {
-        fill: randColor,
-        opacity: .9 
-      }
-    }
-    $( feature.element )
-      .css( cssObj )
-  }
-  
-  var counts = {};
-  $.each(e.features, function( i, feature) {
-    var type = this.data.geometry.type.toLowerCase(),
-        el = this.element,
-        $el   = $(el),
-        $cir  = $(el.firstChild),
-        text  = po.svg('text'),
-        props = this.data.properties,
-        check = $('span.check[data-code=' + props.code + ']'),
-        inact = check.hasClass('inactive');
-    if(!counts[props.code]) {
-      counts[props.code] = 0
-    } 
-    counts[props.code]++
-    $el.bind('click', {props: props, geo: this.data.geometry}, onPointClick)      
-    text.setAttribute("text-anchor", "middle")
-    text.setAttribute("dy", ".35em")
-    text.appendChild(document.createTextNode(props.code))
-    el.appendChild(text)
-  })
-  hideLoader();
+function fetchFeatures(bbox, callback) {
+  $.ajax({
+    url: config.couchUrl + "data",
+    data: {
+      "bbox": bbox
+    },
+    success: callback
+  });
+}
+
+var getBB = function(){
+  var extent = map.getBounds();
+  return extent.getSouthWest().lng + "," + extent.getSouthWest().lat + "," + extent.getNorthEast().lng + "," + extent.getNorthEast().lat;
 }
 
 var formatMetadata = function(data) {
@@ -167,69 +148,6 @@ var formatMetadata = function(data) {
   return out;
 }
 
-var onPointClick = function( event ) {
-  var coor = event.data.geo.coordinates,
-    props = event.data.props;
-  if (event.data.geo.type === "Point") {
-    var centroid = event.data.geo;
-  } else {
-    var centroid = gju.centroid(event.data.geo);
-  }
-  if (isNaN(centroid.coordinates[0])) {
-    var userCoord = map.pointLocation({x:event.clientX, y:event.clientY});
-    centroid.coordinates = [userCoord.lon, userCoord.lat];
-  }
-
-  config.mapContainer
-    .maptip(this)
-    .map(map)
-    .data(props)
-    .location({lat: centroid.coordinates[1], lon: centroid.coordinates[0]})
-    .classNames(function(d) {
-      return d.code
-    })
-    .top(function(tip) {
-      var point = tip.props.map.locationPoint(this.props.location)
-      return parseFloat(point.y - 30)
-    })
-    .left(function(tip) {
-      var radius = tip.target.getAttribute('r'),
-          point = tip.props.map.locationPoint(this.props.location)
-      return parseFloat(point.x + (radius / 2.0) + 20)
-    })
-    .content(function(d) {
-      var self = this,
-        props = d,
-        cnt = $('<div/>'),
-        hdr = $('<h2/>'),
-        bdy = $('<p/>'),
-        check = $('#sbar span[data-code=' + props.code + ']'),
-        ctype = check.next().clone(),
-        otype = check.closest('li.group').attr('data-code'),
-        close = $('<span/>').addClass('close').text('x')
-
-      hdr.append($('<span/>').addClass('badge').text('E').attr('data-code', otype))
-        .append("properties")
-        .append(ctype)
-        .append(close)
-        .addClass(otype) 
-    
-      bdy.html(formatMetadata(props))
-      bdy.append($('<span />')
-        .addClass('date')
-        .text(props.properties))
-    
-      cnt.append($('<div/>').addClass('nub'))
-      cnt.append(hdr).append(bdy) 
-    
-      close.click(function() {
-        self.hide()
-      })   
-
-      return cnt
-    }).render()    
-};
-
 $(function(){  
   if ( !inVhost() ) {
     var cfg = config;
@@ -238,6 +156,6 @@ $(function(){
     cfg.design = unescape( document.location.href ).split( '/' )[ 5 ];
     cfg.couchUrl = "/" + cfg.db + "/_design/" + cfg.design + "/_rewrite/";
   }
-  showLoader();
+
   $.get( config.host + config.couchUrl + "/api/_all_docs?limit=10", gotFirstDoc); 
 });
