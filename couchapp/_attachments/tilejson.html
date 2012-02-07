@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Leaflet TileJSON</title>
+  <meta charset="utf-8" />
+  <link rel="stylesheet" href="style/leaflet.css" />
+  <!--[if lte IE 8]><link rel="stylesheet" href="Content/leaflet.ie.css" /><![endif]-->
+
+  <!-- 
+  
+  from @D_Guidi https://gist.github.com/1716010 
+  
+  -->
+
+</head>
+<body>
+  <div id="map" style='width:1200px;height:800px'> 
+  </div>
+  <script src="script/jquery-1.7.1.min.js"></script>
+  <script src="script/leaflet.js"></script>
+  <script src="script/TileLayer.TileJSON.js"></script>
+<script type="text/javascript">
+$(function () {
+  var lon = -122.4529
+  var lat = 37.7723
+  var zoom = 12
+
+  var map = new L.Map('map')
+  var stamentile = new L.TileLayer('http://tile.stamen.com/terrain/{z}/{x}/{y}.jpg', { maxZoom: 18 })
+  map.addLayer(stamentile)
+
+  var tile = new L.TileLayer.TileJSON({
+    debug: false,
+    point: {
+      color: '#5d57ff',
+      radius: 7
+    },
+    linestring: {
+      color: '#ffe986',
+      size: 5
+    },
+    polygon: {
+      color: '#2eff46',
+      outline: {
+        color: '#2eff46',
+        size: 1
+      }
+    }
+  })
+  tile.createUrl = function (bounds) {
+    var url = ['_spatial/_list/geojson/full?bbox=',
+      bounds[0], ',',
+      bounds[1], ',',
+      bounds[2], ',',
+      bounds[3]
+    ].join('')
+    return url
+  }
+  map.addLayer(tile);
+
+  var center = new L.LatLng(lat, lon);
+  map.setView(center, zoom);
+})
+</script>    
+</body>
+</html>

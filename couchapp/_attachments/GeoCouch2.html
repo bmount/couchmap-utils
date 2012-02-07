@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+	<title>GeoCouch</title>
+  <link href="http://data.ic.ht/dc8364385fc612b847d66ca7886519749c/_design/polymapper/style/reset.css" media="screen" rel="stylesheet" type="text/css" /> 
+  <link href="datamap.css" media="screen" rel="stylesheet" type="text/css" /> 
+  <script type="text/javascript" src="http://data.ic.ht/dc8364385fc612b847d66ca7886519749c/_design/polymapper/script/jquery-1.4.4.min.js"></script>
+  <script type="text/javascript" src="http://data.ic.ht/dc8364385fc612b847d66ca7886519749c/_design/polymapper/script/jquery.couch.js"></script>
+  <!-- <script type="text/javascript" src="script/polymaps.min.js"></script> -->
+  <!--<script type="text/javascript" src="http://data.ic.ht/dc8364385fc612b847d66ca7886519749c/_design/polymapper/script/jquery.selectbox.js"></script>
+  <script type="text/javascript" src="http://data.ic.ht/dc8364385fc612b847d66ca7886519749c/_design/polymapper/script/geojson-utils.js"></script>-->
+  <!--<script type="text/javascript" src="script/map.js"></script>
+  <script type="text/javascript" src="script/maptip.js"></script>-->
+
+		<link rel="stylesheet" href="http://mapmeld.appspot.com/leaflet.css" />
+		<!--[if lte IE 8]><link rel="stylesheet" href="http://mapmeld.appspot.com/leaflet.ie.css" /><![endif]-->
+		<script type="text/javascript" src="http://mapmeld.appspot.com/leaflet.js"></script>
+		<script type="text/javascript">
+var map, po, currentData, geoJson, db;
+
+// Should probably abstract out the couch url and the db prefix and the version and the starting map center.
+var config = {
+	dbPrefix: '',
+	mapCenterLat: 42.3584308,
+	mapCenterLon: -71.0597732,
+	mapStartZoom: 14,
+  db: "api", // relative vhost links defined in rewrites.json
+  design: "ddoc",
+  vhost: true,
+  couchUrl: "",
+  host: "http://" + "http://data.ic.ht/dc8364385fc612b847d66ca7886519749c/_design/polymapper/script/map.js".split( "/" )[ 2 ],  
+};
+
+// vhosts are when you mask couchapps behind a pretty URL
+function inVhost() {
+  var vhost = false;
+  if ( document.location.pathname.indexOf( "_design" ) === -1 ) {
+    vhost = true;
+  }
+  return vhost;
+}
+
+function showLoader() {
+  $('.map_header').first().addClass('loading');  
+}
+
+function hideLoader() {
+  $('.map_header').first().removeClass('loading');  
+}
+
+function gotFirstDoc(data) {
+  data = JSON.parse(data);
+  // find the first non design doc
+  var firstDoc = $(data.rows).map(function(i, r){
+    if (r.id.indexOf("_design/") == -1) return r;
+  })[0];
+  
+  var processData = function(moarData){
+    moarData = JSON.parse(moarData);
+    function getCoordinatesArray(obj){
+      for(var key in obj) {
+        if(key == "coordinates") {
+          return obj[key];
+        }
+        if(typeof(obj) === 'object') {
+          getCoordinatesArray(obj[key]);        
+        }
+      }
+      return false;
+    }
+    function flatten(array){
+      var flat = [];
+      for (var i = 0, l = array.length; i < l; i++){
+        var type = Object.prototype.toString.call(array[i]).split(' ').pop().split(']').shift().toLowerCase();
+        if (type) { 
+          flat = flat.concat(/^(array|collection|arguments|object)$/.test(type) ? flatten(array[i]) : array[i]); 
+        }
+      }
+      return flat;
+    }
+    function getCoordinates(coordinates) {
+      return flatten(coordinates);
+    }
+    var coordinates = getCoordinatesArray(moarData.geometry);
+    var center = getCoordinates(coordinates);
+    config.mapCenterLon = center[0];
+    config.mapCenterLat = center[1];
+    createMap(config);
+  };
+  
+  processData('{"_id":"013013bd7417fc4eb1d70053370d698d","_rev":"1-cc614ed8a795b24945508435763def31","geometry":{"type":"Point","coordinates":[-71.09611556,42.33877667]},"truck":"CheeseForceOne","moving":"OTHER","street":"230 FENWAY","cross_street":"","stopped_for":5350,"heading":382,"city":"BOSTON","gpsID":"10300B7B","time":"2011-10-21T22:56:32.000Z"}');
+  
+}
+
+function createMap(config) {
+  map = new L.Map('map_container', { center: new L.LatLng(1 * config.mapCenterLat, 1 * config.mapCenterLon), zoom: config.mapStartZoom * 1 } );  
+  geoJson = new L.GeoJSON();
+  map.addLayer(geoJson);
+  //geoJson.on('featureparse', function(e){
+    // e.layer and e.properties
+  //});
+  //geoJson.addGeoJSON(geojsonObj);
+  //map.addLayer(geoJson);
+  
+  var featuresCache = {};
+      //.add(po.interact())
+      //.add(po.hash());
+
+var cloudmadeUrl = 'http://tile.stamen.com/terrain/{z}/{x}/{y}.jpg';
+    cloudmadeAttribution = 'Map data &copy; 2011 OpenStreetMap contributors, Tiles courtesy Andy Allan',
+    cloudmade = new L.TileLayer(cloudmadeUrl, {maxZoom: 18, attribution: cloudmadeAttribution});
+	map.addLayer(cloudmade);
+	
+  //map.add(po.compass()
+      //.pan("none"));
+  
+  showDataset();
+}
+
+function randomColor(colors) {
+  var sick_neon_colors = ["#CB3301", "#FF0066", "#FF6666", "#FEFF99", "#FFFF67", "#CCFF66", "#99FE00", "#EC8EED", "#FF99CB", "#FE349A", "#CC99FE", "#6599FF", "#03CDFF"];
+  return sick_neon_colors[Math.floor(Math.random()*sick_neon_colors.length)];
+};
+
+function load(e){
+  var cssObj = randColor = randomColor();
+  for (var i = 0; i < e.features.length; i++) {
+    var feature = e.features[i];
+    if( feature.data.geometry.type == 'LineString' || feature.data.geometry.type == 'MultiLineString' ) {
+      cssObj = {
+        fill: 'none',
+        stroke: randColor,
+        strokeWidth:2,
+        opacity: .9 
+      }
+    } else {
+      cssObj = {
+        fill: randColor,
+        opacity: .9 
+      }
+    }
+    $( feature.element )
+      .css( cssObj )
+  }
+  
+  var counts = {};
+  $.each(e.features, function( i, feature) {
+    var type = this.data.geometry.type.toLowerCase(),
+        el = this.element,
+        $el   = $(el),
+        $cir  = $(el.firstChild),
+        text  = po.svg('text'),
+        props = this.data.properties,
+        check = $('span.check[data-code=' + props.code + ']'),
+        inact = check.hasClass('inactive');
+    if(!counts[props.code]) {
+      counts[props.code] = 0
+    } 
+    counts[props.code]++
+    $el.bind('click', {props: props, geo: this.data.geometry}, onPointClick)      
+    text.setAttribute("text-anchor", "middle")
+    text.setAttribute("dy", ".35em")
+    text.appendChild(document.createTextNode(props.code))
+    el.appendChild(text)
+  })
+}
+
+function fetchFeatures(bbox, callback) {
+  $.ajax({
+    url: config.couchUrl + "data",
+    data: {
+      "bbox": bbox
+    },
+    success: callback
+  });
+}
+
+var trythis;
+
+var showDataset = function() {
+  var bbox = getBB();
+  showLoader();
+  //fetchFeatures( bbox, function( data ){
+  var readBB = function( data ){
+    data = JSON.parse(data);
+    map.removeLayer(geoJson);
+    geoJson = new L.GeoJSON()
+    geoJson.on('featureparse', function(e){
+    	// e.layer and e.properties
+
+    	if(e.layer._latlngs){
+    		//var line = new L.Polyline(e.layer._latlngs, {color: '#ff0000', fillColor:'#ff0000'});
+    		//map.addLayer(line);
+    		map.fitBounds(new L.LatLngBounds(e.layer._latlngs));
+    	}
+    	map.addLayer(e.layer);
+    	e.layer.bindPopup( '<div class="maptip"><div class="maptip-cnt"><div class="nub"></div><h2>properties</h2><p>' + formatMetadata(e.properties) + '</p></div></div>' );
+    	//console.log(e.layer);
+    	//console.log(e.properties);
+  	})
+    geoJson.addGeoJSON(data);
+    /* var feature = po.geoJson()
+          .features( data.features )
+          .on( "show", load );
+    map.add( feature ); */
+    
+    
+    
+    hideLoader();
+  };
+  
+  readBB('{"type": "FeatureCollection", "features":[{"type": "Feature", "id": "e386ea4d4e6313b5b43e57337900c438", "geometry": {"type":"LineString","coordinates":[[-122.46387,37.765014],[-122.463115,37.763821],[-122.462915,37.762494],[-122.462887,37.760424],[-122.463001,37.758787],[-122.46315,37.75761],[-122.463053,37.756469],[-122.462975,37.754833],[-122.463043,37.753681],[-122.463425,37.75274],[-122.463834,37.75235],[-122.467014,37.749771],[-122.468204,37.748808],[-122.46936,37.747888],[-122.469982,37.747232],[-122.470534,37.746416],[-122.470854,37.745444],[-122.470895,37.744233],[-122.470774,37.742484],[-122.470524,37.739773],[-122.47047,37.738093],[-122.47058,37.736986],[-122.471059,37.736006],[-122.471519,37.735159],[-122.471688,37.733759],[-122.471763,37.732251],[-122.471961,37.727324],[-122.472163,37.72451],[-122.472483,37.719916],[-122.472517,37.717476],[-122.472235,37.716266],[-122.471565,37.714413],[-122.471214,37.713166],[-122.471134,37.711198],[-122.471113,37.709536]]}, "properties": {"_id":"e386ea4d4e6313b5b43e57337900c438","_rev":"2-2bc1845dfc727e0efd912fd597051b31","type":"Feature","properties":{"Name":"Western Fwy 2","Description":""}}},{"type": "Feature", "id": "428471f47f4c9e6b96e5e30554048b6a", "geometry": {"type":"Point","coordinates":[-122.4669165,37.7163209]}, "properties": {"_id":"428471f47f4c9e6b96e5e30554048b6a","_rev":"5-6caa5a93ca8bfcbdbf89bd16dbcbfc9e","School":"JOSE ORTEGA ELM ","first choice requests":"29","address":"Jose Ortega Elementary School, 400 Sargent St, San Francisco, CA 94132-3152, USA","2010 Base API":"811","total requests":"187"}},{"type": "Feature", "id": "428471f47f4c9e6b96e5e3055404e9ec", "geometry": {"type":"Point","coordinates":[-122.4594164,37.7140987]}, "properties": {"_id":"428471f47f4c9e6b96e5e3055404e9ec","_rev":"5-0ec116a9ad3db2b704a23b8ca57a6c95","School":"SHERIDAN ELM ","first choice requests":"16","address":"Sheridan Elementary School, 431 Capitol Ave, San Francisco, CA 94112-2997, USA","2010 Base API":"825","total requests":"46"}},{"type": "Feature", "id": "428471f47f4c9e6b96e5e30554037af2", "geometry": {"type":"Point","coordinates":[-122.4471941,37.7104876]}, "properties": {"_id":"428471f47f4c9e6b96e5e30554037af2","_rev":"5-48f7ec3504c95af4198276f2bd4be7fc","School":"LONGFELLOW ELM ","first choice requests":"75","address":"Longfellow Elementary School, 755 Morse St, San Francisco, CA 94112-4296, USA","2010 Base API":"808","total requests":"177"}},{"type": "Feature", "id": "428471f47f4c9e6b96e5e3055403d508", "geometry": {"type":"Point","coordinates":[-122.4346939,37.7102098]}, "properties": {"_id":"428471f47f4c9e6b96e5e3055403d508","_rev":"5-8f8c06acec6e98418063d7ee27bd2910","School":"GUADALUPE ELM ","first choice requests":"56","address":"Guadalupe Elementary School, 859 Prague St, San Francisco, CA 94112-4516, USA","2010 Base API":"804","total requests":"184"}}]}');
+  
+}
+
+var getBB = function(){
+  var extent = map.getBounds();
+  return extent.getSouthWest().lng + "," + extent.getSouthWest().lat + "," + extent.getNorthEast().lng + "," + extent.getNorthEast().lat;
+}
+
+var formatMetadata = function(data) {
+  out = '<dl>';
+  $.each(data, function(key, val) {
+    if (typeof(val) == 'string' && key[0] != '_') {
+      out = out + '<dt>' + key + '<dd>' + val;
+    } else if (typeof(val) == 'object' && key != "geometry" && val != null) {
+      if (key == 'properties') {
+        $.each(val, function(attr, value){
+          out = out + '<dt>' + attr + '<dd>' + value;
+        })
+      } else {
+        out = out + '<dt>' + key + '<dd>' + val.join(', ');
+      }
+    }
+  });
+  out = out + '</dl>';
+  return out;
+}
+
+var onPointClick = function( event ) {
+  var coor = event.data.geo.coordinates,
+    props = event.data.props;
+  if (event.data.geo.type === "Point") {
+    var centroid = event.data.geo;
+  } else {
+    var centroid = gju.centroid(event.data.geo);
+  }
+    
+  config.mapContainer
+    .maptip(this)
+    .map(map)
+    .data(props)
+    .location({lat: centroid.coordinates[1], lon: centroid.coordinates[0]})
+    .classNames(function(d) {
+      return d.code
+    })
+    .top(function(tip) {
+      var point = tip.props.map.locationPoint(this.props.location)
+      return parseFloat(point.y - 30)
+    })
+    .left(function(tip) {
+      var radius = tip.target.getAttribute('r'),
+          point = tip.props.map.locationPoint(this.props.location)
+      return parseFloat(point.x + (radius / 2.0) + 20)
+    })
+    .content(function(d) {
+      var self = this,
+        props = d,
+        cnt = $('<div/>'),
+        hdr = $('<h2/>'),
+        bdy = $('<p/>'),
+        check = $('#sbar span[data-code=' + props.code + ']'),
+        ctype = check.next().clone(),
+        otype = check.closest('li.group').attr('data-code'),
+        close = $('<span/>').addClass('close').text('x')
+
+      hdr.append($('<span/>').addClass('badge').text('E').attr('data-code', otype))
+        .append("properties")
+        .append(ctype)
+        .append(close)
+        .addClass(otype) 
+    
+      bdy.html(formatMetadata(props))
+      bdy.append($('<span />')
+        .addClass('date')
+        .text(props.properties))
+    
+      cnt.append($('<div/>').addClass('nub'))
+      cnt.append(hdr).append(bdy) 
+    
+      close.click(function() {
+        self.hide()
+      })   
+
+      return cnt
+    }).render()    
+};
+
+$(function(){  
+  if ( !inVhost() ) {
+    var cfg = config;
+    cfg.vhost = false
+    cfg.db = document.location.href.split( '/' )[ 3 ];
+    cfg.design = unescape( document.location.href ).split( '/' )[ 5 ];
+    cfg.couchUrl = "/" + cfg.db + "/_design/" + cfg.design + "/_rewrite/";
+  }
+
+  gotFirstDoc('{"total_rows":2432,"offset":0,"rows":[{"id":"013013bd7417fc4eb1d70053370d698d","key":"013013bd7417fc4eb1d70053370d698d","value":{"rev":"1-cc614ed8a795b24945508435763def31"}},{"id":"013013bd7417fc4eb1d70053370da624","key":"013013bd7417fc4eb1d70053370da624","value":{"rev":"1-303e3d47832991f13115f1f8fbf7aa30"}},{"id":"013013bd7417fc4eb1d700533725c9e7","key":"013013bd7417fc4eb1d700533725c9e7","value":{"rev":"1-aa06630c2060997cca42d5e5491cec00"}},{"id":"013013bd7417fc4eb1d70053372c06c4","key":"013013bd7417fc4eb1d70053372c06c4","value":{"rev":"1-e5f72c7a5a71e490319257e7bafffe3d"}},{"id":"013013bd7417fc4eb1d70053372c2274","key":"013013bd7417fc4eb1d70053372c2274","value":{"rev":"1-2680de3cb56db7a8a4a603b9e49a19c6"}},{"id":"013013bd7417fc4eb1d700533761e1a7","key":"013013bd7417fc4eb1d700533761e1a7","value":{"rev":"1-cef095aee70aad4819490934450c3328"}},{"id":"013013bd7417fc4eb1d700533762cf34","key":"013013bd7417fc4eb1d700533762cf34","value":{"rev":"1-c22129144816e3dcd1190f77bbc5fe31"}},{"id":"013013bd7417fc4eb1d700533762ed4e","key":"013013bd7417fc4eb1d700533762ed4e","value":{"rev":"1-4d5403a6228c84fed13ca94fb759eed1"}},{"id":"013013bd7417fc4eb1d7005337630613","key":"013013bd7417fc4eb1d7005337630613","value":{"rev":"1-94299d448735b989083f44cf34e98a3d"}},{"id":"013013bd7417fc4eb1d7005337631d4c","key":"013013bd7417fc4eb1d7005337631d4c","value":{"rev":"1-b8b6103d2be1fd64e38b1d6f5d0e76d2"}}]}' );
+
+});
+		</script>
+</head>
+<body>
+  <div id="map_container" class="map_container"></div>
+  <div class="map_header"> 
+  	<h2><a href="http://github.com/maxogden/geocouch-utils">GeoCouch</a></h2> 
+  </div>
+  <div class="date"></div>
+  <div id="dialog">
+    <ul></ul>
+  </div>
+</body>
+</html>

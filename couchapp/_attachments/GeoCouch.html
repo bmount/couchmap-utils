@@ -17,7 +17,6 @@
 		<!--[if lte IE 8]><link rel="stylesheet" href="http://mapmeld.appspot.com/leaflet.ie.css" /><![endif]-->
 		<script type="text/javascript" src="http://mapmeld.appspot.com/leaflet.js"></script>
 		<script type="text/javascript">
-var map, po, currentData, geoJson, db;
 
 // Should probably abstract out the couch url and the db prefix and the version and the starting map center.
 var config = {
@@ -97,23 +96,13 @@ function createMap(config) {
   map = new L.Map('map_container', { center: new L.LatLng(1 * config.mapCenterLat, 1 * config.mapCenterLon), zoom: config.mapStartZoom * 1 } );  
   geoJson = new L.GeoJSON();
   map.addLayer(geoJson);
-  //geoJson.on('featureparse', function(e){
-    // e.layer and e.properties
-  //});
-  //geoJson.addGeoJSON(geojsonObj);
-  //map.addLayer(geoJson);
   
   var featuresCache = {};
-      //.add(po.interact())
-      //.add(po.hash());
 
 var cloudmadeUrl = 'http://tile.stamen.com/terrain/{z}/{x}/{y}.jpg';
     cloudmadeAttribution = 'Map data &copy; 2011 OpenStreetMap contributors, Tiles courtesy Andy Allan',
     cloudmade = new L.TileLayer(cloudmadeUrl, {maxZoom: 18, attribution: cloudmadeAttribution});
 	map.addLayer(cloudmade);
-	
-  //map.add(po.compass()
-      //.pan("none"));
   
   showDataset();
 }

@@ -80,10 +80,10 @@ function createMap(config) {
   
   var featuresCache = {};
 
-  var stamenUrl = 'http://tile.stamen.com/terrain/{z}/{x}/{y}.jpg';
-    stamenAttribution = 'Map data &copy; 2012 OpenStreetMap contributors, Tiles courtesy Andy Allan';
-    stamen = new L.TileLayer(stamenUrl, {maxZoom: 18, attribution: stamenAttribution});
-	map.addLayer(stamen);
+  var stamenUrl = 'http://tile.stamen.com/terrain/{z}/{x}/{y}.jpg',
+    stamenAttribution = 'Map data &copy; 2012 OpenStreetMap contributors, Tiles courtesy Andy Allan',
+    stamen = new L.TileLayer(stamenUrl, {maxZoom: 18, attribution: stamenAttribution})
+	map.addLayer(stamen)
 
   /* var cloudmadeUrl = 'http://{s}.tile.cloudmade.com/d3394c6c242a4f26bb7dd4f7e132e5ff/998/256/{z}/{x}/{y}.png';
     cloudmadeAttribution = 'Map data &copy; 2012 OpenStreetMap contributors, Tiles from Cloudmade';
