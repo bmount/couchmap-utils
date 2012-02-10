@@ -26,6 +26,7 @@ $(function () {
   var zoom = 12
 
   var map = new L.Map('map')
+  var stamenattrib = 'Map data &copy; 2011 OpenStreetMap contributors, Tiles &copy; <a href="http://mike.teczno.com/notes/osm-us-terrain-layer/foreground.html">Michal Migurski, Stamen Design</a>',
   var stamentile = new L.TileLayer('http://tile.stamen.com/terrain/{z}/{x}/{y}.jpg', { maxZoom: 18 })
   map.addLayer(stamentile)
 

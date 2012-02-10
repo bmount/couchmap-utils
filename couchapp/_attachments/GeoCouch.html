@@ -100,10 +100,10 @@ function createMap(config) {
   var featuresCache = {};
 
 var cloudmadeUrl = 'http://tile.stamen.com/terrain/{z}/{x}/{y}.jpg';
-    cloudmadeAttribution = 'Map data &copy; 2011 OpenStreetMap contributors, Tiles courtesy Andy Allan',
-    cloudmade = new L.TileLayer(cloudmadeUrl, {maxZoom: 18, attribution: cloudmadeAttribution});
-	map.addLayer(cloudmade);
-  
+  var stamenattrib = 'Map data &copy; 2011 OpenStreetMap contributors, Tiles &copy; <a href="http://mike.teczno.com/notes/osm-us-terrain-layer/foreground.html">Michal Migurski, Stamen Design</a>',
+  cloudmade = new L.TileLayer(cloudmadeUrl, {maxZoom: 18, attribution: stamenattrib});
+map.addLayer(cloudmade);
+
   showDataset();
 }
 

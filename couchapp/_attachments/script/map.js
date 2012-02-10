@@ -81,7 +81,7 @@ function createMap(config) {
   var featuresCache = {};
 
   var stamenUrl = 'http://tile.stamen.com/terrain/{z}/{x}/{y}.jpg',
-    stamenAttribution = 'Map data &copy; 2012 OpenStreetMap contributors, Tiles courtesy Andy Allan',
+    stamenAttribution = 'Map data &copy; 2011 OpenStreetMap contributors, Tiles &copy; <a href="http://mike.teczno.com/notes/osm-us-terrain-layer/foreground.html">Michal Migurski, Stamen Design</a>',
     stamen = new L.TileLayer(stamenUrl, {maxZoom: 18, attribution: stamenAttribution})
 	map.addLayer(stamen)
 
