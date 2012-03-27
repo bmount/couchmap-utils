@@ -1,5 +1,5 @@
 html, body {
-  height: 100%;
+  height: 100%; 
 }
 
 body {
@@ -11,7 +11,7 @@ svg {
   display: block;
   overflow: hidden;
   width: 100%;
-  height: 100%;
+  height: 100%; 
 }
 
 #copy {
@@ -20,12 +20,28 @@ svg {
   bottom: 4px;
   padding-left: 5px;
   font: 9px sans-serif;
-  color: #fff;
+  color: #000;
   cursor: default;
 }
 
+#infobox {
+    position: absolute;
+    left: 50px;
+    top: 150px;
+    width: 300px;
+    padding-left: 5px;
+    padding-right: 5px;
+    background-color: #FFEFD5;
+}
+
+#infoThankYou {
+    position: absolute;
+    right: 10px;
+    top: 10px;
+}
+
 #copy a {
-  color: #fff;
+  color: blue;
 }
 
 .compass .back {
