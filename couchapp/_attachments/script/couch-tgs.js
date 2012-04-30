@@ -3,13 +3,13 @@ var po = org.polymaps;
 function setup () {
 var map = po.map()
   .container(document.body.appendChild(po.svg("svg")))
-  .center({lat: 37.7582, lon: -122.3955}) //  37.7455, lon: h ? h.split('/')[2] : -122.42203}
-  .zoomRange([1, 18])
-  .zoom(15)
+  .center({lat: 37.781489, lon: -122.398982}) //  37.7455, lon: h ? h.split('/')[2] : -122.42203}
+  .zoomRange([1, 18]) // 37.781489;-122.398982
+  .zoom(16)
   .add(po.interact())
   .add(po.hash());
 
-map.add(po.image().url(po.url("http://tile.stamen.com/terrain/{Z}/{X}/{Y}.jpg")))
+map.add(po.image().url(po.url("http://tile.stamen.com/watercolor/{Z}/{X}/{Y}.jpg")))
 
 map.add(po.geoJson().url("dogpouch_clean.json").on("load", load))
 
@@ -66,7 +66,6 @@ function load(f) {
     console.log(feat)
     console.log(feat)
     feat.element.setAttribute("stroke", '#CCCCCC')
-    feat.element.setAttribute("stroke-dasharray", "5,10,5")
     feat.element.setAttribute("fill", '#'+colorId)
     feat.element.setAttribute("opacity", .3)
     feat.element.setAttribute("class", "patch")
