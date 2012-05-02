@@ -1,18 +1,20 @@
 # This software is licensed under the MIT License.
 #
-# Copyright (c) 2011 
+# Copyright (c) 2010-2012
 #
+#   Geocouch-Utils:
 #	Volker Mische (http://vmx.cx/) 
 #	Benjamin Erb (http://www.benjamin-erb.de)
 #	Max Odgen (http://www.maxogden.com/)
 #	David Thompson (http://davidmichaelthompson.com/)
 #
-#   Portions Copyright (c) SimpleGeo, Stamen Design, see
-#   polymaps.org for additional details on reuse (BSD license,
-#   free for any use except suing the people who wrote it.)
-#   This repo maintained by Brian Mount, my stuff
-#   available under same licenses as original authors.
-#
+#   Polymaps:
+#   Copyright (c) SimpleGeo,, see
+#   polymaps.org for additional details on reuse (BSD license) 
+#   
+#   Couchmap-Utils:
+#   Brian Mount (http://github.com/bvmou)
+#  
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
 # in the Software without restriction, including without limitation the rights
