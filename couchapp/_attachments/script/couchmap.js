@@ -8,8 +8,7 @@ var map = po.map()
   .add(po.hash());
 
 map.add(po.geoJson()
-  .url("../tgs/_spatial/_list/geojson/geoms?bbox={G}")
-  .id("your_id_here")
+  .url("../cmu/_spatial/_list/geojson/geoms?bbox={G}")
   .tile(true)
   .on("load", load))
 
@@ -19,6 +18,5 @@ map.add(po.compass()
 function load(e) {
   for (var i = 0; i < e.features.length; i++) {
     var feature = e.features[i];
-    feature.element.setAttribute("id", feature.data.properties);
   }
 }
